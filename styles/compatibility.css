@@ -1,0 +1,62 @@
+/* Compatibility fixes */
+:root {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.backdrop-blur-sm {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+[data-nextjs-call-stack-frame] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Fix appearance order */
+.appearance-none {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Fix background-clip order */
+.bg-clip-text {
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Fix transform order */
+.scale-105,
+.scale-\[1\.02\] {
+  -ms-transform: scale(1.05);
+  transform: scale(1.05);
+}
+
+/* Fix user-select order */
+.select-none {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Fix mask-image support */
+.mask {
+  -webkit-mask-image: var(--mask-image);
+  mask-image: var(--mask-image);
+}
+
+/* Light/dark mode fallbacks for Safari */
+@supports not (color: light-dark(#000, #fff)) {
+  :root[data-theme="dark"] {
+    --background-color: #3c4043;
+    --text-color: #fff;
+  }
+  :root[data-theme="light"] {
+    --background-color: #e8eaed;
+    --text-color: #000;
+  }
+}
