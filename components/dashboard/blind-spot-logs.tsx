@@ -65,7 +65,7 @@ export function BlindSpotLogs() {
             src="/icon 1.png"
             alt="Vehicle"
             className="object-contain w-full h-full"
-            style={{ 
+            style={{
               display: 'block'
             }}
             onError={(e) => {
@@ -91,6 +91,12 @@ export function BlindSpotLogs() {
   const getTimeAgo = (timestamp: Date) => {
     const now = new Date()
     const diffMs = now.getTime() - timestamp.getTime()
+
+    // Handle future dates - show formatted date/time instead of negative relative time
+    if (diffMs < 0) {
+      return timestamp.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    }
+
     const diffMins = Math.floor(diffMs / (1000 * 60))
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
@@ -209,8 +215,8 @@ export function BlindSpotLogs() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-foreground">No Detection Logs Available</h3>                 
-                </div>                
+                  <h3 className="text-xl font-bold text-foreground">No Detection Logs Available</h3>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -221,39 +227,36 @@ export function BlindSpotLogs() {
               <CardContent className="relative p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
                   <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
-                    <div className={`rounded-lg shadow-lg shrink-0 flex items-center justify-center ${
-                      detection.detectionType === "vehicle" 
-                        ? "bg-gray-900 dark:bg-gray-800 w-10 h-10 sm:w-12 sm:h-12 p-1" 
-                        : "bg-gradient-to-br from-chart-1 to-chart-2 p-2 sm:p-2.5 min-w-[2.5rem] min-h-[2.5rem] sm:min-w-[3rem] sm:min-h-[3rem]"
-                    }`}>
+                    <div className={`rounded-lg shadow-lg shrink-0 flex items-center justify-center ${detection.detectionType === "vehicle"
+                      ? "bg-gray-900 dark:bg-gray-800 w-10 h-10 sm:w-12 sm:h-12 p-1"
+                      : "bg-gradient-to-br from-chart-1 to-chart-2 p-2 sm:p-2.5 min-w-[2.5rem] min-h-[2.5rem] sm:min-w-[3rem] sm:min-h-[3rem]"
+                      }`}>
                       {getTypeIcon(detection.detectionType)}
                     </div>
-                      <div className="space-y-2 sm:space-y-3 flex-1 min-w-0">
+                    <div className="space-y-2 sm:space-y-3 flex-1 min-w-0">
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           {detection.alertLevel && (
-                            <Badge 
+                            <Badge
                               variant={detection.alertLevel === "DANGER" ? "destructive" : "secondary"}
-                              className={`font-medium text-[10px] sm:text-xs px-2 sm:px-3 py-1 shrink-0 ${
-                                detection.alertLevel === "DANGER" 
-                                  ? "bg-destructive/10 text-destructive border-destructive/20" 
-                                  : "bg-muted"
-                              }`}>
+                              className={`font-medium text-[10px] sm:text-xs px-2 sm:px-3 py-1 shrink-0 ${detection.alertLevel === "DANGER"
+                                ? "bg-destructive/10 text-destructive border-destructive/20"
+                                : "bg-muted"
+                                }`}>
                               {detection.alertLevel}
                             </Badge>
                           )}
-                          <Badge variant={getSeverityColor(detection.severity)} 
-                            className={`font-medium text-[10px] sm:text-xs px-2 sm:px-3 py-1 shrink-0 ${
-                              detection.severity === "critical" || detection.severity === "high" 
-                                ? "bg-destructive/10 text-destructive border-destructive/20" 
-                                : "bg-muted"
-                            }`}>
+                          <Badge variant={getSeverityColor(detection.severity)}
+                            className={`font-medium text-[10px] sm:text-xs px-2 sm:px-3 py-1 shrink-0 ${detection.severity === "critical" || detection.severity === "high"
+                              ? "bg-destructive/10 text-destructive border-destructive/20"
+                              : "bg-muted"
+                              }`}>
                             {getSeverityIcon(detection.severity)} {detection.severity.toUpperCase()}
                           </Badge>
                         </div>
                         <p className="text-xs sm:text-sm text-muted-foreground">{detection.description}</p>
                       </div>
-                      
+
                       <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-xs">
                         <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
                           <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-1 shrink-0" />
@@ -271,14 +274,6 @@ export function BlindSpotLogs() {
                             <span className="text-foreground font-medium truncate">{detection.placeName}</span>
                           </div>
                         )}
-                        <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
-                          <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-2 shrink-0" />
-                          <span className="text-foreground font-mono text-[9px] sm:text-[10px] truncate">{formatCoordinates(detection.latitude, detection.longitude)}</span>
-                        </div>
-                        <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
-                          <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-4 shrink-0" />
-                          <span className="text-foreground">{getTimeAgo(detection.timestamp)}</span>
-                        </div>
                       </div>
                     </div>
                   </div>
