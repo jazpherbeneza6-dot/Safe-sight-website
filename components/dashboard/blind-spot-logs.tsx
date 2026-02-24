@@ -6,12 +6,15 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAdmin } from "@/contexts/admin-context"
-import { AlertTriangle, MapPin, Clock, Filter, User, Car, Shield, Bike, Dog, Database, Navigation, Map } from "lucide-react"
+import { AlertTriangle, MapPin, Clock, Filter, User, Car, Shield, Bike, Dog, Database, Navigation, Map, ChevronLeft, ChevronRight, Calendar } from "lucide-react"
 
 export function BlindSpotLogs() {
   const { blindSpotDetections, truckDrivers } = useAdmin()
   const [searchTerm, setSearchTerm] = useState("")
   const [severityFilter, setSeverityFilter] = useState<string>("all")
+  const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().slice(0, 10))
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 10
 
   const filteredDetections = blindSpotDetections.filter((detection) => {
     const matchesSearch =
@@ -21,9 +24,21 @@ export function BlindSpotLogs() {
       (detection.direction && detection.direction.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (detection.alertLevel && detection.alertLevel.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesSeverity = severityFilter === "all" || detection.severity === severityFilter
+    const detLocalDate = `${detection.timestamp.getFullYear()}-${String(detection.timestamp.getMonth() + 1).padStart(2, '0')}-${String(detection.timestamp.getDate()).padStart(2, '0')}`
+    const matchesDate = dateFilter === "" || detLocalDate === dateFilter
 
-    return matchesSearch && matchesSeverity
+    return matchesSearch && matchesSeverity && matchesDate
   })
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredDetections.length / ITEMS_PER_PAGE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedDetections = filteredDetections.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE)
+
+  const handleFilterChange = (setter: (v: string) => void) => (value: string) => {
+    setter(value)
+    setCurrentPage(1)
+  }
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -91,12 +106,6 @@ export function BlindSpotLogs() {
   const getTimeAgo = (timestamp: Date) => {
     const now = new Date()
     const diffMs = now.getTime() - timestamp.getTime()
-
-    // Handle future dates - show formatted date/time instead of negative relative time
-    if (diffMs < 0) {
-      return timestamp.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    }
-
     const diffMins = Math.floor(diffMs / (1000 * 60))
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
@@ -172,19 +181,19 @@ export function BlindSpotLogs() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-3">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Search</label>
               <Input
                 placeholder="Search by driver, place, direction, or alert level..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="border-2 border-border/80 focus:border-chart-1 focus:ring-2 focus:ring-chart-1/20 bg-input/50"
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Severity</label>
-              <Select value={severityFilter} onValueChange={setSeverityFilter}>
+              <Select value={severityFilter} onValueChange={handleFilterChange(setSeverityFilter)}>
                 <SelectTrigger className="border-2 border-border/80 focus:border-chart-1 focus:ring-2 focus:ring-chart-1/20 bg-input/50">
                   <SelectValue />
                 </SelectTrigger>
@@ -194,6 +203,15 @@ export function BlindSpotLogs() {
                   <SelectItem value="medium">Medium</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Date</label>
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1); }}
+                className="border-2 border-border/80 focus:border-chart-1 focus:ring-2 focus:ring-chart-1/20 bg-input/50"
+              />
             </div>
           </div>
         </CardContent>
@@ -221,70 +239,104 @@ export function BlindSpotLogs() {
             </CardContent>
           </Card>
         ) : (
-          filteredDetections.map((detection) => (
-            <Card key={detection.id} className="group relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-card to-card/80 backdrop-blur-sm hover:scale-[1.01]">
-              <div className="absolute inset-0 bg-gradient-to-br from-chart-1/5 to-chart-2/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <CardContent className="relative p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
-                  <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
-                    <div className={`rounded-lg shadow-lg shrink-0 flex items-center justify-center ${detection.detectionType === "vehicle"
-                      ? "bg-gray-900 dark:bg-gray-800 w-10 h-10 sm:w-12 sm:h-12 p-1"
-                      : "bg-gradient-to-br from-chart-1 to-chart-2 p-2 sm:p-2.5 min-w-[2.5rem] min-h-[2.5rem] sm:min-w-[3rem] sm:min-h-[3rem]"
-                      }`}>
-                      {getTypeIcon(detection.detectionType)}
-                    </div>
-                    <div className="space-y-2 sm:space-y-3 flex-1 min-w-0">
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {detection.alertLevel && (
-                            <Badge
-                              variant={detection.alertLevel === "DANGER" ? "destructive" : "secondary"}
-                              className={`font-medium text-[10px] sm:text-xs px-2 sm:px-3 py-1 shrink-0 ${detection.alertLevel === "DANGER"
+          <>
+            {paginatedDetections.map((detection) => (
+              <Card key={detection.id} className="group relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-card to-card/80 backdrop-blur-sm hover:scale-[1.01]">
+                <div className="absolute inset-0 bg-gradient-to-br from-chart-1/5 to-chart-2/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <CardContent className="relative p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                    <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                      <div className={`rounded-lg shadow-lg shrink-0 flex items-center justify-center ${detection.detectionType === "vehicle"
+                        ? "bg-gray-900 dark:bg-gray-800 w-10 h-10 sm:w-12 sm:h-12 p-1"
+                        : "bg-gradient-to-br from-chart-1 to-chart-2 p-2 sm:p-2.5 min-w-[2.5rem] min-h-[2.5rem] sm:min-w-[3rem] sm:min-h-[3rem]"
+                        }`}>
+                        {getTypeIcon(detection.detectionType)}
+                      </div>
+                      <div className="space-y-2 sm:space-y-3 flex-1 min-w-0">
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {detection.alertLevel && (
+                              <Badge
+                                variant={detection.alertLevel === "DANGER" ? "destructive" : "secondary"}
+                                className={`font-medium text-[10px] sm:text-xs px-2 sm:px-3 py-1 shrink-0 ${detection.alertLevel === "DANGER"
+                                  ? "bg-destructive/10 text-destructive border-destructive/20"
+                                  : "bg-muted"
+                                  }`}>
+                                {detection.alertLevel}
+                              </Badge>
+                            )}
+                            <Badge variant={getSeverityColor(detection.severity)}
+                              className={`font-medium text-[10px] sm:text-xs px-2 sm:px-3 py-1 shrink-0 ${detection.severity === "critical" || detection.severity === "high"
                                 ? "bg-destructive/10 text-destructive border-destructive/20"
                                 : "bg-muted"
                                 }`}>
-                              {detection.alertLevel}
+                              {getSeverityIcon(detection.severity)} {detection.severity.toUpperCase()}
                             </Badge>
-                          )}
-                          <Badge variant={getSeverityColor(detection.severity)}
-                            className={`font-medium text-[10px] sm:text-xs px-2 sm:px-3 py-1 shrink-0 ${detection.severity === "critical" || detection.severity === "high"
-                              ? "bg-destructive/10 text-destructive border-destructive/20"
-                              : "bg-muted"
-                              }`}>
-                            {getSeverityIcon(detection.severity)} {detection.severity.toUpperCase()}
-                          </Badge>
+                          </div>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{detection.description}</p>
                         </div>
-                        <p className="text-xs sm:text-sm text-muted-foreground">{detection.description}</p>
-                      </div>
 
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-xs">
-                        <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
-                          <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-1 shrink-0" />
-                          <span className="text-foreground font-medium truncate">{detection.driverName}</span>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-xs">
+                          <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
+                            <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-1 shrink-0" />
+                            <span className="text-foreground font-medium truncate">{detection.driverName}</span>
+                          </div>
+                          {detection.direction && (
+                            <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
+                              <Navigation className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-3 shrink-0" />
+                              <span className="text-foreground font-medium capitalize">{detection.direction}</span>
+                            </div>
+                          )}
+                          {detection.placeName && (
+                            <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
+                              <Map className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-5 shrink-0" />
+                              <span className="text-foreground font-medium truncate">{detection.placeName}</span>
+                            </div>
+                          )}
                         </div>
-                        {detection.direction && (
-                          <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
-                            <Navigation className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-3 shrink-0" />
-                            <span className="text-foreground font-medium capitalize">{detection.direction}</span>
-                          </div>
-                        )}
-                        {detection.placeName && (
-                          <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
-                            <Map className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-5 shrink-0" />
-                            <span className="text-foreground font-medium truncate">{detection.placeName}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
+                    <div className="text-left sm:text-right text-[10px] sm:text-xs bg-muted/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shrink-0">
+                      <div className="font-medium text-foreground">{detection.timestamp.toLocaleDateString()}</div>
+                      <div className="text-muted-foreground">{detection.timestamp.toLocaleTimeString()}</div>
+                    </div>
                   </div>
-                  <div className="text-left sm:text-right text-[10px] sm:text-xs bg-muted/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shrink-0">
-                    <div className="font-medium text-foreground">{detection.timestamp.toLocaleDateString()}</div>
-                    <div className="text-muted-foreground">{detection.timestamp.toLocaleTimeString()}</div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/80 backdrop-blur-sm overflow-hidden">
+                <CardContent className="py-3 sm:py-4 px-3 sm:px-6">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safePage <= 1}
+                      className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed bg-muted/50 hover:bg-muted text-foreground border border-border/50 hover:border-border"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <span className="text-muted-foreground">Page</span>
+                      <span className="font-bold text-foreground bg-muted/50 px-2.5 py-1 rounded-lg border border-border/50">{safePage}</span>
+                      <span className="text-muted-foreground">of {totalPages}</span>
+                      <span className="text-muted-foreground hidden sm:inline">({filteredDetections.length} results)</span>
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safePage >= totalPages}
+                      className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed bg-muted/50 hover:bg-muted text-foreground border border-border/50 hover:border-border"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </div>
