@@ -277,7 +277,10 @@ export function BlindSpotLogs() {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-xs">
-
+                          <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
+                            <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-1 shrink-0" />
+                            <span className="text-foreground font-medium truncate">{detection.driverName}</span>
+                          </div>
                           {detection.direction && (
                             <div className="bg-muted/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1.5 sm:gap-2">
                               <Navigation className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-chart-3 shrink-0" />
