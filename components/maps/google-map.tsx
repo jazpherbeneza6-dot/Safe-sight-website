@@ -5,7 +5,7 @@ import { AlertTriangle, Maximize2 } from "lucide-react"
 
 interface TruckLocation {
   id: string
-  truckNumber: string
+  plateNumber: string
   driverName: string
   latitude: number
   longitude: number
@@ -571,7 +571,7 @@ export function GoogleMap({ truckLocations, className = "", vehicleSpeeds }: Goo
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale; 
                 margin-bottom: 6px;
-              ">License: ${this.location.truckNumber}</div>
+              ">Plate #: ${this.location.plateNumber}</div>
               
               <div style="
                 color: ${speed > 0 ? '#10b981' : '#9ca3af'}; 
@@ -709,7 +709,7 @@ export function GoogleMap({ truckLocations, className = "", vehicleSpeeds }: Goo
 
           const size = 44 // Size of the marker
           const imageUrl = this.location.profileImageUrl
-            ? `/api/serve-mega?url=${encodeURIComponent(this.location.profileImageUrl)}`
+            ? this.location.profileImageUrl
             : null
 
           this.div.innerHTML = `
@@ -851,7 +851,7 @@ export function GoogleMap({ truckLocations, className = "", vehicleSpeeds }: Goo
 
     truckLocations.forEach((location) => {
       if (isNaN(location.latitude) || isNaN(location.longitude)) {
-        console.warn(`Invalid coordinates for truck ${location.truckNumber}`)
+        console.warn(`Invalid coordinates for truck ${location.plateNumber}`)
         return
       }
 

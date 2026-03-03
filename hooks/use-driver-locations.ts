@@ -28,7 +28,7 @@ export const useDriverLocations = () => {
             lastUpdate: data.lastUpdated?.toDate() || new Date(),
             accuracy: 30, // Default accuracy in meters
             speed: 0, // Default speed
-            truckNumber: data.licenseNumber || 'Unknown'
+            plateNumber: data.plateNumber || data.licenseNumber || 'Unknown'
           } as TruckLocation
         })
         setLocations(updatedLocations)

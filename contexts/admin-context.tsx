@@ -24,7 +24,7 @@ export interface TruckDriver {
   username: string
   password: string
   fullName: string
-  licenseNumber: string
+  plateNumber: string
   phoneNumber: string
   email: string
   status: "active" | "inactive" | "online" | "offline"
@@ -44,7 +44,7 @@ export type TruckLocation = {
   status: "moving" | "idle" | "offline"
   speed: number
   lastUpdate: Date
-  truckNumber: string
+  plateNumber: string
   profileImageUrl?: string
 }
 
@@ -165,7 +165,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             username: data.username,
             password: data.password || "",
             fullName: fullName,
-            licenseNumber: data.licenseNumber || "",
+            plateNumber: data.plateNumber || data.licenseNumber || "",
             phoneNumber: data.phoneNumber || "",
             email: data.email,
             status: data.status,
@@ -236,7 +236,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
               status: data.status || "offline",
               speed: data.speed || 0,
               lastUpdate: lastUpdate,
-              truckNumber: data.licenseNumber || "Unknown",
+              plateNumber: data.plateNumber || data.licenseNumber || "Unknown",
               profileImageUrl: data.profileImageUrl,
             })
           }

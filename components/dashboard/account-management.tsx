@@ -70,7 +70,7 @@ export function AccountManagement() {
     username: "",
     password: "",
     fullName: "",
-    licenseNumber: "",
+    plateNumber: "",
     phoneNumber: "",
     email: "",
     status: "active" as "active" | "inactive" | "online" | "offline",
@@ -80,12 +80,23 @@ export function AccountManagement() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
+  // Convert a file to base64 data URL using compression
+  const fileToBase64 = async (file: File): Promise<string> => {
+    const compressedFile = await compressImage(file, 800, 800, 0.85)
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error("Failed to read file"))
+      reader.readAsDataURL(compressedFile)
+    })
+  }
+
   const resetForm = () => {
     setFormData({
       username: "",
       password: "",
       fullName: "",
-      licenseNumber: "",
+      plateNumber: "",
       phoneNumber: "",
       email: "",
       status: "active" as "active" | "inactive" | "online" | "offline",
@@ -165,60 +176,14 @@ export function AccountManagement() {
       if (selectedFile) {
         setUploading(true)
         try {
-          // Compress image before upload to reduce file size and speed up upload
           const originalSize = selectedFile.size
-          const compressedFile = await compressImage(selectedFile, 800, 800, 0.85)
-          const compressedSize = compressedFile.size
-          const savedBytes = originalSize - compressedSize
-
-          console.log(`Image compressed: ${formatFileSize(originalSize)} → ${formatFileSize(compressedSize)} (saved ${formatFileSize(savedBytes)})`)
-
-          const uploadFormData = new FormData()
-          uploadFormData.append("file", compressedFile)
-
-          const res = await fetch("/api/upload-mega", {
-            method: "POST",
-            body: uploadFormData,
-          })
-          const data = await res.json()
-
-          // Handle upload failure gracefully - don't throw, just log and continue
-          if (!res.ok) {
-            const errorMsg = data.error || "Upload failed"
-            console.warn("Profile picture upload failed:", errorMsg)
-
-            // Check if it's a blocking error
-            if (errorMsg.includes("EBLOCKED") || errorMsg.includes("User blocked")) {
-              alerts.warning("Profile picture upload skipped", {
-                details: "The image upload service is currently unavailable. The driver account will be created without a profile picture. You can add one later by editing the driver."
-              })
-            } else {
-              alerts.warning("Profile picture upload failed", {
-                details: `Could not upload profile picture: ${errorMsg}. The driver account will be created without a profile picture. You can add one later.`
-              })
-            }
-            // Continue with driver creation even if upload fails
-            profileImageUrl = ""
-          } else {
-            profileImageUrl = data.url
-            console.log("Profile picture uploaded successfully:", profileImageUrl)
-          }
+          profileImageUrl = await fileToBase64(selectedFile)
+          console.log(`Profile image converted to base64 (original: ${formatFileSize(originalSize)})`)
         } catch (error: any) {
-          console.warn("Upload error (non-critical):", error)
-          // Don't block driver creation if upload fails - make it optional
-          const errorMsg = error.message || "Unknown error"
-
-          // Check if it's a blocking error
-          if (errorMsg.includes("EBLOCKED") || errorMsg.includes("User blocked")) {
-            alerts.warning("Profile picture upload skipped", {
-              details: "The image upload service is currently unavailable. The driver account will be created without a profile picture. You can add one later by editing the driver."
-            })
-          } else {
-            alerts.warning("Profile picture upload failed", {
-              details: `Could not upload profile picture: ${errorMsg}. The driver account will be created without a profile picture. You can add one later.`
-            })
-          }
-          // Continue with driver creation even if upload fails
+          console.warn("Image conversion error (non-critical):", error)
+          alerts.warning("Profile picture upload failed", {
+            details: `Could not process profile picture. The driver account will be created without a profile picture. You can add one later.`
+          })
           profileImageUrl = ""
         } finally {
           setUploading(false)
@@ -307,87 +272,19 @@ export function AccountManagement() {
     try {
       let updateData = { ...formData }
 
-      // Handle profile picture upload if changed
+      // Handle profile picture change
       if (selectedFile) {
         setUploading(true)
-
-        // Delete old profile picture if exists
-        if (editingDriver.profileImageUrl) {
-          try {
-            await fetch("/api/delete-mega", {
-              method: "DELETE",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ url: editingDriver.profileImageUrl }),
-            })
-            console.log("Old profile picture deleted successfully")
-          } catch (error: any) {
-            console.warn("Could not delete old profile picture:", error)
-            // Continue anyway - upload is more important
-          }
-        }
-
-        // Compress image before upload to reduce file size and speed up upload
-        const originalSize = selectedFile.size
-        const compressedFile = await compressImage(selectedFile, 800, 800, 0.85)
-        const compressedSize = compressedFile.size
-        const savedBytes = originalSize - compressedSize
-
-        console.log(`Image compressed: ${formatFileSize(originalSize)} → ${formatFileSize(compressedSize)} (saved ${formatFileSize(savedBytes)})`)
-
-        // Upload new profile picture
-        const uploadFormData = new FormData()
-        uploadFormData.append("file", compressedFile)
-
         try {
-          const res = await fetch("/api/upload-mega", {
-            method: "POST",
-            body: uploadFormData,
-          })
-          const data = await res.json()
-
-          // Handle upload failure gracefully - don't throw, just log and continue
-          if (!res.ok) {
-            const errorMsg = data.error || "Upload failed"
-            console.warn("Profile picture update failed:", errorMsg)
-
-            // Check if it's a blocking error
-            if (errorMsg.includes("EBLOCKED") || errorMsg.includes("User blocked")) {
-              alerts.warning("Profile picture update skipped", {
-                details: "The image upload service is currently unavailable. The driver information will be updated without changing the profile picture."
-              })
-            } else {
-              alerts.warning("Profile picture update failed", {
-                details: `Could not update profile picture: ${errorMsg}. The driver information will be updated without changing the profile picture.`
-              })
-            }
-            // Keep the old profile image URL
-            updateData.profileImageUrl = editingDriver.profileImageUrl || ""
-          } else {
-            // Set new profile image URL
-            updateData.profileImageUrl = data.url
-            console.log("Profile picture updated successfully:", data.url)
-          }
+          const originalSize = selectedFile.size
+          updateData.profileImageUrl = await fileToBase64(selectedFile)
+          console.log(`Profile image converted to base64 (original: ${formatFileSize(originalSize)})`)
         } catch (error: any) {
-          console.warn("Upload error (non-critical):", error)
-          const errorMsg = error.message || "Unknown error"
-
-          // Check if it's a blocking error
-          if (errorMsg.includes("EBLOCKED") || errorMsg.includes("User blocked")) {
-            alerts.warning("Profile picture update skipped", {
-              details: "The image upload service is currently unavailable. The driver information will be updated without changing the profile picture."
-            })
-            // Keep the old profile image URL
-            updateData.profileImageUrl = editingDriver.profileImageUrl || ""
-          } else {
-            alerts.warning("Profile picture update failed", {
-              details: `Could not update profile picture: ${errorMsg}. The driver information will be updated without changing the profile picture.`
-            })
-            // Keep the old profile image URL
-            updateData.profileImageUrl = editingDriver.profileImageUrl || ""
-          }
-          // Continue with update even if upload fails
+          console.warn("Image conversion error (non-critical):", error)
+          alerts.warning("Profile picture update failed", {
+            details: `Could not process profile picture. The driver information will be updated without changing the profile picture.`
+          })
+          updateData.profileImageUrl = editingDriver.profileImageUrl || ""
         } finally {
           setUploading(false)
         }
@@ -442,7 +339,7 @@ export function AccountManagement() {
       username: driver.username,
       password: driver.password,
       fullName: driver.fullName,
-      licenseNumber: driver.licenseNumber,
+      plateNumber: driver.plateNumber,
       phoneNumber: driver.phoneNumber,
       email: driver.email,
       status: driver.status,
@@ -666,33 +563,17 @@ export function AccountManagement() {
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-                    <Label htmlFor="licenseNumber" className="text-left sm:text-right font-medium text-sm">
-                      License #
+                    <Label htmlFor="plateNumber" className="text-left sm:text-right font-medium text-sm">
+                      Plate #
                     </Label>
-                    <div className="relative col-span-1 sm:col-span-3">
-                      <Input
-                        id="licenseNumber"
-                        type={showAddLicense ? "text" : "password"}
-                        autoComplete="off"
-                        value={formData.licenseNumber}
-                        onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-                        disabled={isSubmitting}
-                        className="pr-10 border-border/50 focus:border-chart-1 h-9"
-                      />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-auto">
-                        <button
-                          type="button"
-                          onClick={() => setShowAddLicense(!showAddLicense)}
-                          aria-label={showAddLicense ? "Hide license number" : "Show license number"}
-                          className="h-6 w-6 rounded-md border border-border/50 flex items-center justify-center bg-background hover:bg-muted/50 transition-colors"
-                        >
-                          {showAddLicense ?
-                            <EyeOff className="h-3 w-3" aria-hidden="true" /> :
-                            <Eye className="h-3 w-3" aria-hidden="true" />
-                          }
-                        </button>
-                      </div>
-                    </div>
+                    <Input
+                      id="plateNumber"
+                      autoComplete="off"
+                      value={formData.plateNumber}
+                      onChange={(e) => setFormData({ ...formData, plateNumber: e.target.value })}
+                      disabled={isSubmitting}
+                      className="col-span-1 sm:col-span-3 border-border/50 focus:border-chart-1 h-9"
+                    />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                     <Label htmlFor="phoneNumber" className="text-left sm:text-right font-medium text-sm">
@@ -787,8 +668,8 @@ export function AccountManagement() {
                 <div className="relative shrink-0">
                   <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-chart-1/30 shadow-lg bg-muted">
                     {driver.profileImageUrl ? (
-                      <Image
-                        src={`/api/serve-mega?url=${encodeURIComponent(driver.profileImageUrl)}`}
+                      <img
+                        src={driver.profileImageUrl}
                         alt={driver.fullName}
                         width={56}
                         height={56}
@@ -844,8 +725,8 @@ export function AccountManagement() {
                     <CreditCard className="h-3 w-3 text-chart-5" />
                   </div>
                   <div className="flex-1">
-                    <span className="font-medium text-foreground">License:</span>
-                    <span className="ml-2 text-muted-foreground">{driver.licenseNumber || "No license on file"}</span>
+                    <span className="font-medium text-foreground">Plate #:</span>
+                    <span className="ml-2 text-muted-foreground">{driver.plateNumber || "No plate number on file"}</span>
                   </div>
                 </div>
 
@@ -971,12 +852,12 @@ export function AccountManagement() {
               <div className="flex flex-col items-center gap-3 w-full">
                 <div className="relative">
                   <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-chart-1/20 shadow-lg bg-muted">
-                    <Image
+                    <img
                       src={
                         selectedFile
                           ? URL.createObjectURL(selectedFile)
                           : editingDriver?.profileImageUrl
-                            ? `/api/serve-mega?url=${encodeURIComponent(editingDriver.profileImageUrl)}`
+                            ? editingDriver.profileImageUrl
                             : "/driver_logo.png"
                       }
                       alt="Profile Picture"
@@ -1091,70 +972,17 @@ export function AccountManagement() {
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
-              <Label htmlFor="edit-licenseNumber" className="text-left sm:text-right text-sm">
-                License #
+              <Label htmlFor="edit-plateNumber" className="text-left sm:text-right text-sm">
+                Plate #
               </Label>
-              <div className="relative col-span-1 sm:col-span-3">
-                <Input
-                  id="edit-licenseNumber"
-                  type={showEditLicense ? "text" : "password"}
-                  autoComplete="off"
-                  value={formData.licenseNumber}
-                  onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-                  className="pr-10 h-9"
-                  disabled={isSubmitting}
-                  readOnly={showEditLicense} // Prevent editing when visible
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-auto">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!showEditLicense) setVerifyLicensePassword(true)
-                      else setShowEditLicense(false)
-                    }}
-                    className="h-6 w-6 rounded-md border border-border/50 flex items-center justify-center bg-background hover:bg-muted/50 transition-colors text-foreground"
-                  >
-                    {showEditLicense ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                  </button>
-                </div>
-                {/* Password Prompt Modal */}
-                {verifyLicensePassword && (
-                  <div className="absolute z-50 top-10 right-0 bg-card border border-border/50 rounded-lg shadow-2xl p-3 w-56 backdrop-blur-sm">
-                    {/* The password required here is the current admin password (same as used for login and Security Settings) */}
-                    <div className="mb-2 font-medium text-sm text-foreground">Enter your admin password to view</div>
-                    <Input
-                      type="password"
-                      value={passwordInput}
-                      onChange={(e) => setPasswordInput(e.target.value)}
-                      placeholder="Admin Password"
-                      className="mb-2 h-8 border-border/50 focus:border-chart-1 bg-background text-foreground"
-                      autoComplete="off"
-                    />
-                    {passwordError && <div className="text-destructive text-xs mb-2">{passwordError}</div>}
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => verifyAdminPassword(passwordInput, "license")}
-                        className="h-7 text-xs bg-gradient-to-r from-chart-1 to-chart-2 hover:from-chart-1/90 hover:to-chart-2/90"
-                      >
-                        Confirm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setVerifyLicensePassword(false)
-                          setPasswordInput("")
-                          setPasswordError("")
-                        }}
-                        className="h-7 text-xs border-border/50"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <Input
+                id="edit-plateNumber"
+                autoComplete="off"
+                value={formData.plateNumber}
+                onChange={(e) => setFormData({ ...formData, plateNumber: e.target.value })}
+                className="sm:col-span-3 h-9"
+                disabled={isSubmitting}
+              />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
               <Label htmlFor="edit-phoneNumber" className="text-left sm:text-right text-sm">

@@ -172,12 +172,12 @@ export function GPSTrackingView() {
     return `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`
   }
 
-  // Get license number from driver data
-  const getLicenseNumber = (driverName: string, driverId?: string) => {
+  // Get plate number from driver data
+  const getPlateNumber = (driverName: string, driverId?: string) => {
     const driver = truckDrivers.find(
       (d) => d.fullName === driverName || d.id === driverId || d.firebaseUid === driverId
     )
-    return driver?.licenseNumber || "No license"
+    return driver?.plateNumber || "No plate #"
   }
 
   // Get place name from coordinates using reverse geocoding
@@ -428,7 +428,7 @@ export function GPSTrackingView() {
             {truckLocations.map((location) => {
               const realTimeSpeed = getRealTimeSpeed(location.id, location.speed)
               const displayStatus = location.status === "offline" ? "offline" : realTimeSpeed > 0 ? "moving" : "idle"
-              const licenseNumber = getLicenseNumber(location.driverName, location.driverId)
+              const plateNumber = getPlateNumber(location.driverName, location.driverId)
               const placeName = placeNames[location.id] || formatCoordinates(location.latitude, location.longitude)
 
               return (
@@ -451,8 +451,8 @@ export function GPSTrackingView() {
                         {/* Profile Picture instead of Truck Icon */}
                         <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-chart-1/30 shadow-lg bg-muted shrink-0">
                           {location.profileImageUrl ? (
-                            <Image
-                              src={`/api/serve-mega?url=${encodeURIComponent(location.profileImageUrl)}`}
+                            <img
+                              src={location.profileImageUrl}
                               alt={location.driverName}
                               width={40}
                               height={40}
@@ -466,7 +466,7 @@ export function GPSTrackingView() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="truncate">{location.driverName}</div>
-                          <div className="text-[10px] sm:text-xs text-muted-foreground truncate">License: {licenseNumber}</div>
+                          <div className="text-[10px] sm:text-xs text-muted-foreground truncate">Plate #: {plateNumber}</div>
                         </div>
                       </CardTitle>
                       <Badge
