@@ -1,20 +1,54 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { DayPicker } from "react-day-picker"
+import "react-day-picker/style.css"
 import { useAdmin } from "@/contexts/admin-context"
-import { AlertTriangle, MapPin, Clock, Filter, User, Car, Shield, Bike, Dog, Database, Navigation, Map, ChevronLeft, ChevronRight, Calendar } from "lucide-react"
+import { AlertTriangle, Filter, User, Shield, Bike, Dog, Navigation, Map, ChevronLeft, ChevronRight, CalendarIcon, X } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+// Get today's date in LOCAL time as YYYY-MM-DD (avoids UTC offset shifting the date for UTC+8 users)
+function getLocalDateString(date: Date = new Date()): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
 
 export function BlindSpotLogs() {
   const { blindSpotDetections, truckDrivers } = useAdmin()
   const [searchTerm, setSearchTerm] = useState("")
   const [severityFilter, setSeverityFilter] = useState<string>("all")
-  const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().slice(0, 10))
+  // ✅ Use local time for initial date, not UTC (fixes UTC+8 date shift)
+  const [dateFilter, setDateFilter] = useState<string>(getLocalDateString())
+  const [calendarOpen, setCalendarOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  // Controlled calendar month state so custom navigation works
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => new Date())
   const ITEMS_PER_PAGE = 10
+
+  // Convert YYYY-MM-DD string → local-time Date for the calendar
+  const selectedDate: Date | undefined = dateFilter
+    ? new Date(`${dateFilter}T00:00:00`)
+    : undefined
+
+  // Display label for the trigger button
+  const displayLabel = selectedDate
+    ? selectedDate.toLocaleDateString("en-PH", { year:"numeric", month:"long", day:"numeric" })
+    : "Pick a date"
+
+  // Validate that the filter string is a real calendar date
+  const isDateFilterValid = (() => {
+    if (!dateFilter) return true
+    const [y, m, d] = dateFilter.split("-").map(Number)
+    const dt = new Date(Date.UTC(y, m - 1, d))
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() + 1 === m && dt.getUTCDate() === d
+  })()
 
   const filteredDetections = blindSpotDetections.filter((detection) => {
     const matchesSearch =
@@ -25,7 +59,7 @@ export function BlindSpotLogs() {
       (detection.alertLevel && detection.alertLevel.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesSeverity = severityFilter === "all" || detection.severity === severityFilter
     const detLocalDate = `${detection.timestamp.getFullYear()}-${String(detection.timestamp.getMonth() + 1).padStart(2, '0')}-${String(detection.timestamp.getDate()).padStart(2, '0')}`
-    const matchesDate = dateFilter === "" || detLocalDate === dateFilter
+    const matchesDate = dateFilter === "" || (isDateFilterValid && detLocalDate === dateFilter)
 
     return matchesSearch && matchesSeverity && matchesDate
   })
@@ -206,12 +240,123 @@ export function BlindSpotLogs() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Date</label>
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1); }}
-                className="border-2 border-border/80 focus:border-chart-1 focus:ring-2 focus:ring-chart-1/20 bg-input/50"
-              />
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm border-2 border-border/80 bg-input/50 hover:border-chart-1/60 hover:bg-muted/40 transition-all duration-200 text-left",
+                      calendarOpen && "border-chart-1 ring-2 ring-chart-1/20"
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4 text-chart-1 shrink-0" />
+                    <span className={cn("flex-1", !dateFilter && "text-muted-foreground")}>
+                      {displayLabel}
+                    </span>
+                    {dateFilter && (
+                      <span
+                        role="button"
+                        aria-label="Clear date filter"
+                        onClick={(e) => { e.stopPropagation(); setDateFilter(""); setCurrentPage(1); }}
+                        className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0 border border-border/60 shadow-2xl rounded-xl overflow-hidden"
+                  align="start"
+                >
+                  {/* ── Custom Month/Year Header ─────────────────────── */}
+                  <div className="flex items-center justify-between px-3 pt-3 pb-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalendarMonth(
+                          (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
+                        )
+                      }
+                      className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                      aria-label="Previous month"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+
+                    <div className="flex items-center gap-1.5 flex-1 justify-center">
+                      {/* Month selector */}
+                      <select
+                        aria-label="Select month"
+                        title="Select month"
+                        value={calendarMonth.getMonth()}
+                        onChange={(e) =>
+                          setCalendarMonth(
+                            new Date(calendarMonth.getFullYear(), Number(e.target.value), 1)
+                          )
+                        }
+                        className="text-sm font-semibold bg-transparent border border-border/60 rounded-md px-2 py-1 cursor-pointer hover:bg-muted focus:outline-none focus:ring-2 focus:ring-chart-1/40"
+                      >
+                        {["January","February","March","April","May","June",
+                          "July","August","September","October","November","December"
+                        ].map((name, i) => (
+                          <option key={i} value={i}>{name}</option>
+                        ))}
+                      </select>
+
+                      {/* Year selector */}
+                      <select
+                        aria-label="Select year"
+                        title="Select year"
+                        value={calendarMonth.getFullYear()}
+                        onChange={(e) =>
+                          setCalendarMonth(
+                            new Date(Number(e.target.value), calendarMonth.getMonth(), 1)
+                          )
+                        }
+                        className="text-sm font-semibold bg-transparent border border-border/60 rounded-md px-2 py-1 cursor-pointer hover:bg-muted focus:outline-none focus:ring-2 focus:ring-chart-1/40"
+                      >
+                        {Array.from({ length: 6 }, (_, i) => 2024 + i).map((yr) => (
+                          <option key={yr} value={yr}>{yr}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCalendarMonth(
+                          (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
+                        )
+                      }
+                      className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                      aria-label="Next month"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* ── Calendar Grid ────────────────────────────────── */}
+                  <DayPicker
+                    mode="single"
+                    selected={selectedDate}
+                    month={calendarMonth}
+                    onMonthChange={setCalendarMonth}
+                    hideNavigation
+                    onDayClick={(date, modifiers) => {
+                      if (!modifiers.disabled) {
+                        const newDateStr = getLocalDateString(date)
+                        setDateFilter(newDateStr)
+                        setCurrentPage(1)
+                        setCalendarOpen(false)
+                      }
+                    }}
+                    style={{ margin: 0 }}
+                    styles={{
+                      month_caption: { display: "none" },
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </CardContent>
@@ -298,7 +443,6 @@ export function BlindSpotLogs() {
                     </div>
                     <div className="text-left sm:text-right text-[10px] sm:text-xs bg-muted/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shrink-0">
                       <div className="font-medium text-foreground">{detection.timestamp.toLocaleDateString()}</div>
-                      <div className="text-muted-foreground">{detection.timestamp.toLocaleTimeString()}</div>
                     </div>
                   </div>
                 </CardContent>
